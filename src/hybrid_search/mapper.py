@@ -13,6 +13,7 @@ class DictMapper:
         df (pd.DataFrame): The loaded DataFrame.
         df_data (pd.DataFrame): The cleaned DataFrame without unnecessary rows.
     """
+
     def __init__(self, file_path: str, sheet_name: str):
         """
         Initializes the DictMapper with the file path and sheet name.

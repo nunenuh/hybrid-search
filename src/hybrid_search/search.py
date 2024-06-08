@@ -1,15 +1,14 @@
 import string
+from typing import List
 
 import faiss
 import nltk
 import numpy as np
-import pandas as pd
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
 from nltk.tokenize import word_tokenize
 from rank_bm25 import BM25Okapi
 from sentence_transformers import SentenceTransformer, util
-from typing import List
 
 nltk.download("punkt")
 nltk.download("stopwords")
@@ -19,6 +18,7 @@ class FAISSManager:
     """
     Manages FAISS index creation and searching.
     """
+
     def __init__(self, corpus_embeddings):
         """
         Initializes the FAISSManager with given embeddings.
@@ -29,7 +29,7 @@ class FAISSManager:
         self.corpus_embeddings = corpus_embeddings
         self.index = self._build_index()
 
-    def _build_index(self)->faiss.IndexFlatL2:
+    def _build_index(self) -> faiss.IndexFlatL2:
         """
         Builds the FAISS index.
 
@@ -40,7 +40,7 @@ class FAISSManager:
         index = faiss.IndexFlatL2(d)
         index.add(np.array(self.corpus_embeddings))
         return index
-    
+
     def scores(self, query_embedding, indices):
         """
         Calculates similarity scores using FAISS.
@@ -55,14 +55,11 @@ class FAISSManager:
         faiss_scores = []
         for i in indices:
             corpus_embedding = np.expand_dims(self.corpus_embeddings[i], axis=0)
-            score = util.pytorch_cos_sim(
-                query_embedding, 
-                corpus_embedding
-            )
+            score = util.pytorch_cos_sim(query_embedding, corpus_embedding)
             score = score.numpy().flatten()[0]
             faiss_scores.append(score)
         return faiss_scores
-    
+
     def search(self, query_embedding, top_n: int = 10):
         """
         Searches for the top N similar embeddings.
@@ -77,7 +74,7 @@ class FAISSManager:
         _, indices = self.index.search(query_embedding, top_n)
         indices = indices.flatten()
         scores = self.scores(query_embedding, indices)
-        
+
         return indices, scores
 
 
@@ -85,7 +82,7 @@ class HybridSearch:
     """
     HybridSearch class for performing hybrid search combining BM25 and Sentence Transformers with FAISS.
     """
-    
+
     def __init__(
         self,
         base_mapping: dict,
@@ -98,13 +95,13 @@ class HybridSearch:
             base_mapping (dict): Dictionary containing the base mapping.
             transformer_model (str): Name of the transformer model to use.
         """
-        
+
         self.base_mapping = base_mapping
         self.corpus = list(base_mapping.keys())
-        
+
         self.tokenized_corpus = [self._tokenize(doc) for doc in self.corpus]
         self.bm25 = BM25Okapi(self.tokenized_corpus)
-        
+
         self.model = SentenceTransformer(transformer_model)
         self.corpus_embeddings = self.model.encode(self.corpus, convert_to_tensor=False)
         self.fmgr = FAISSManager(self.corpus_embeddings)
@@ -129,8 +126,8 @@ class HybridSearch:
         stemmer = PorterStemmer()
         tokens = [stemmer.stem(word) for word in tokens]  # Stem words
         return tokens
-    
-    def _normalize_scores(self, rscores)->np.ndarray:
+
+    def _normalize_scores(self, rscores) -> np.ndarray:
         """
         Normalizes scores.
 
@@ -142,21 +139,21 @@ class HybridSearch:
         """
         mxscr = np.max(rscores)
         mnscr = np.min(rscores)
-        
+
         if mxscr != mnscr:
             norm_scr = (rscores - mnscr) / (mxscr - mnscr)
         else:
             norm_scr = np.array(rscores)
-            
+
         return norm_scr
-        
+
     def _hybrid_scores(
-        self, 
-        bm25_scores, 
+        self,
+        bm25_scores,
         tfr_scores,
         transformer_weight: float = 0.9,
-        bm25_weight: float = 0.3,   
-    )->np.ndarray:
+        bm25_weight: float = 0.3,
+    ) -> np.ndarray:
         """
         Combines BM25 and transformer scores with weighting.
 
@@ -169,24 +166,20 @@ class HybridSearch:
         Returns:
             np.ndarray: Combined scores.
         """
-        
-         # Normalize BM25 scores and transformer scores
+
+        # Normalize BM25 scores and transformer scores
         bm25_scores = self._normalize_scores(bm25_scores)
         tfr_scores = self._normalize_scores(tfr_scores)
 
-        agreement_factor = np.multiply(bm25_scores, tfr_scores) 
+        agreement_factor = np.multiply(bm25_scores, tfr_scores)
         bm25_weighted_scores = bm25_weight * bm25_scores
         tfr_weighted_scores = transformer_weight * tfr_scores
-        
-        combined_scores = ( 
-            bm25_weighted_scores + 
-            tfr_weighted_scores + 
-            agreement_factor
-        )
-        
+
+        combined_scores = bm25_weighted_scores + tfr_weighted_scores + agreement_factor
+
         return combined_scores
-    
-    def _query_embedding(self, query: str)->np.ndarray:
+
+    def _query_embedding(self, query: str) -> np.ndarray:
         """
         Encodes a query to get its embedding.
 
@@ -199,8 +192,8 @@ class HybridSearch:
         embedding = self.model.encode(query, convert_to_tensor=False)
         embedding = embedding.reshape(1, -1)
         return embedding
- 
-    def _ranked_result(self, candidates: List[str], scores: List[float])->List[dict]:
+
+    def _ranked_result(self, candidates: List[str], scores: List[float]) -> List[dict]:
         """
         Creates ranked results with scores.
 
@@ -222,9 +215,8 @@ class HybridSearch:
             }
             ranked_results.append(result)
         return ranked_results
-    
-    
-    def bm25_search(self, query: str, top_n: int = 10)->List[dict]:
+
+    def bm25_search(self, query: str, top_n: int = 10) -> List[dict]:
         """
         Performs BM25 search.
 
@@ -247,8 +239,8 @@ class HybridSearch:
         # Create results with scores
         ranked_results = self._ranked_result(candidates, scores)
         return ranked_results
-    
-    def transformer_search(self, query: str, top_n: int = 10)->List[dict]:
+
+    def transformer_search(self, query: str, top_n: int = 10) -> List[dict]:
         """
         Performs transformer-based search using FAISS.
 
@@ -261,7 +253,7 @@ class HybridSearch:
         """
         query_embedding = self._query_embedding(query)
         indices, scores = self.fmgr.search(query_embedding, top_n=top_n)
-        
+
         # Get the top N candidates
         candidates = [self.corpus[i] for i in indices]
 
@@ -276,7 +268,7 @@ class HybridSearch:
         top_n: int = 10,
         transformer_weight: float = 0.9,
         bm25_weight: float = 0.3,
-    )->List[dict]:
+    ) -> List[dict]:
         """
         Performs hybrid search combining BM25 and transformer-based search.
 
@@ -299,40 +291,15 @@ class HybridSearch:
 
         # Get BM25 scores for the top N candidates
         bm25_scores = [
-            bm25_scores[self.corpus.index(candidate)] 
-            for candidate in tfr_candidates
+            bm25_scores[self.corpus.index(candidate)] for candidate in tfr_candidates
         ]
 
         combined_scores = self._hybrid_scores(
             bm25_scores,
             tfr_scores,
             transformer_weight=transformer_weight,
-            bm25_weight=bm25_weight
+            bm25_weight=bm25_weight,
         )
         ranked_results = self._ranked_result(tfr_candidates, combined_scores)
 
         return ranked_results
-
-
-# Function to evaluate search accuracy and return detailed results as a DataFrame
-def evaluate_search_accuracy(test_mapping_dict, search_engine, search_method):
-    results = []
-    correct = 0
-    for key, true_value in test_mapping_dict.items():
-        search_results = search_method(key, top_n=1)
-        predicted_value = search_results[0][2] if search_results else "Unmapped"
-        is_correct = predicted_value == true_value
-        if is_correct:
-            correct += 1
-        results.append(
-            {
-                "Key": key,
-                "Predicted": predicted_value,
-                "Ground Truth": true_value,
-                "Correct": is_correct,
-                "Score": f"{search_results[0][1]:.4f}",
-            }
-        )
-
-    accuracy = correct / len(test_mapping_dict) * 100
-    return pd.DataFrame(results), accuracy

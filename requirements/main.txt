@@ -2,9 +2,9 @@ faiss-cpu
 gradio
 nltk
 numpy
+openpyxl
 pandas
 rank_bm25
 scikit-learn
 sentence-transformers
 transformers
-openpyxl
