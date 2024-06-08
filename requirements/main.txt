@@ -1,9 +1,10 @@
-transformers 
-sentence-transformers 
-rank_bm25 
-faiss-cpu 
+faiss-cpu
 gradio
-scikit-learn
-pandas
-numpy
 nltk
+numpy
+pandas
+rank_bm25
+scikit-learn
+sentence-transformers
+transformers
+openpyxl
