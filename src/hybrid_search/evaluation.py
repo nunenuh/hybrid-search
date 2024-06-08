@@ -4,30 +4,6 @@ from sklearn.metrics import (accuracy_score, confusion_matrix, f1_score,
                              precision_score, recall_score)
 
 
-# Function to evaluate search accuracy and return detailed results as a DataFrame
-def evaluate_search_accuracy(test_mapping_dict, search_engine, search_method):
-    results = []
-    correct = 0
-    for key, true_value in test_mapping_dict.items():
-        search_results = search_method(key, top_n=1)
-        predicted_value = search_results[0][2] if search_results else "Unmapped"
-        is_correct = predicted_value == true_value
-        if is_correct:
-            correct += 1
-        results.append(
-            {
-                "Key": key,
-                "Predicted": predicted_value,
-                "Ground Truth": true_value,
-                "Correct": is_correct,
-                "Score": f"{search_results[0][1]:.4f}",
-            }
-        )
-
-    accuracy = correct / len(test_mapping_dict) * 100
-    return pd.DataFrame(results), accuracy
-
-
 def generate_labels(test_mapping_dict, search_method):
     """
     Generates true and predicted labels using the provided search method.
