@@ -1,0 +1,5 @@
+transformers 
+sentence-transformers 
+rank_bm25 
+faiss-cpu 
+gradio
