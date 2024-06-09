@@ -209,6 +209,17 @@ Generate evaluation metrics to assess the accuracy and efficiency of the mapping
 ## Documentation
 Refer to the inline comments and function docstrings for detailed explanations of the code.
 
+## What Next?
+To further enhance the mapping process, consider the following top recommendations:
+
+  **1. Train a Domain-Specific Model**:
+  Fine-tune the Sentence BERT model using a dataset specific to the financial domain. If no dataset is available, generate one using ChatGPT with prompt engineering to improve semantic understanding and mapping accuracy.
+
+  **2. Dynamic Weight Adjustment**:
+    Develop a mechanism to dynamically adjust BM25 and transformer weights based on query type or performance data. This approach can optimize the balance between keyword relevance and semantic similarity, enhancing overall search accuracy.
+
+  **3. Active Learning**:
+  Implement active learning to allow the model to query experts for uncertain mappings. This iterative approach leverages expert feedback to continuously refine the model, improving accuracy over time.
 
 ## Reference
 * bm25 github: https://github.com/dorianbrown/rank_bm25
