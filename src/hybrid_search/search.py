@@ -209,8 +209,10 @@ class HybridSearch:
         ranked_results = self._ranked_result(candidates, scores)
 
         return ranked_results
-    
-    def _rrf(self, rankings: List[List[int]], weights: List[float], k: int = 60) -> dict:
+
+    def _rrf(
+        self, rankings: List[List[int]], weights: List[float], k: int = 60
+    ) -> dict:
         """
         Calculates the Reciprocal Rank Fusion (RRF) score with weights.
 
@@ -253,7 +255,7 @@ class HybridSearch:
         tokenized_query = self._tokenize(query)
         bm25_scores = self.bm25.get_scores(tokenized_query)
         bm25_indices = np.argsort(bm25_scores)[::-1][:top_n]
-        
+
         rankings = [tfr_indices.tolist(), bm25_indices.tolist()]
         weights = [transformer_weight, bm25_weight]
         rrf_scores = self._rrf(rankings, weights)
@@ -262,8 +264,6 @@ class HybridSearch:
         combined_scores = [rrf_scores[doc_id] for doc_id in combined_indices]
         combined_candidates = [self.corpus[doc_id] for doc_id in combined_indices]
 
-        ranked_results = self._ranked_result(
-            combined_candidates, combined_scores
-        )
+        ranked_results = self._ranked_result(combined_candidates, combined_scores)
 
         return ranked_results
