@@ -26,8 +26,75 @@ where:
 This formula ensures that documents ranked highly by multiple algorithms receive a higher combined score, thereby improving the accuracy of the final ranked list.
 
 ### Hybrid Search Implementation
-The hybrid search method combines BM25 and transformer-based search using weighted RRF to ensure balanced and accurate ranking results. 
+The hybrid search method combines BM25 and transformer-based search using weighted RRF to ensure balanced and accurate ranking results.
 
+This code below is the part of class HybridSearch with method hybrid_search. The flow is search with sentence transformer, search with bm25, get the RRF score, get combined indices, scores and candidate that will be used to show the result.
+```python
+  def hybrid_search(
+      self,
+      query: str,
+      top_n: int = 10,
+      transformer_weight: float = 0.9,
+      bm25_weight: float = 0.3,
+  ) -> List[dict]:
+      """
+      Performs hybrid search combining BM25 and transformer-based search using weighted RRF.
+
+      Args:
+          query (str): Query string.
+          top_n (int): Number of top results to return.
+          transformer_weight (float): Weight for transformer scores.
+          bm25_weight (float): Weight for BM25 scores.
+
+      Returns:
+          list: Ranked results from hybrid search.
+      """
+      # sentence transformer search
+      query_embedding = self._query_embedding(query)
+      tfr_indices, tfr_scores = self.fmgr.search(query_embedding, top_n=top_n)
+
+      # bm25 search
+      tokenized_query = self._tokenize(query)
+      bm25_scores = self.bm25.get_scores(tokenized_query)
+      bm25_indices = np.argsort(bm25_scores)[::-1][:top_n]
+
+      # get RRF scores by use both indice from bm25 and sber and the weight
+      rankings = [tfr_indices.tolist(), bm25_indices.tolist()]
+      weights = [transformer_weight, bm25_weight]
+      rrf_scores = self._rrf(rankings, weights)
+
+      # Extract combined indice and scores to get candidates
+      combined_indices = list(rrf_scores.keys())
+      combined_scores = [rrf_scores[doc_id] for doc_id in combined_indices]
+      combined_candidates = [self.corpus[doc_id] for doc_id in combined_indices]
+
+      ranked_results = self._ranked_result(combined_candidates, combined_scores)
+
+      return ranked_results
+```
+
+And this code below is the part of the rrf algorithm from HybridClass
+```python
+  def _rrf(
+      self, rankings: List[List[int]], weights: List[float], k: int = 60
+  ) -> dict:
+      """
+      Calculates the Reciprocal Rank Fusion (RRF) score with weights.
+
+      Args:
+          rankings (list of list of int): Rankings from different methods.
+          weights (list of float): Weights for each ranking method.
+          k (int): The constant for RRF.
+
+      Returns:
+          dict: Combined ranking scores.
+      """
+      rrf_scores = {}
+      for weight, rank_list in zip(weights, rankings):
+          for rank, doc_id in enumerate(rank_list):
+              rrf_scores[doc_id] = rrf_scores.get(doc_id, 0) + weight / (k + rank + 1)
+      return rrf_scores
+```
 
 ## Problem Statement
 The primary goal is to create an accurate and efficient mapping of account names using a hybrid search mechanism that combines BM25 and Sentence Transformers with FAISS. The project addresses the challenge of handling unmapped account names by leveraging advanced search techniques.
@@ -120,7 +187,7 @@ Generate evaluation metrics to assess the accuracy and efficiency of the mapping
     )
     ```
 2. Calculate Evaluation Metrics:
-    
+
     Generate confusion matrix and metrics such as precision, recall, F1 score, and accuracy.
     ```python
     precision, recall, f1, accuracy = calculate_evaluation_metrics(true_labels, predicted_labels)
@@ -148,7 +215,9 @@ Refer to the inline comments and function docstrings for detailed explanations o
 * bm25 paper: http://www.cs.otago.ac.nz/homepages/andrew/papers/2014-2.pdf
 * sbert model: https://huggingface.co/uonyeka/bge-base-financial-matryoshka
 * RRF Explanation: https://weaviate.io/blog/hybrid-search-explained
+* RRF Paper : https://www.semanticscholar.org/paper/Risk-Reward-Trade-offs-in-Rank-Fusion-Benham/26bcfffe1740d3fd8c88e60760e139d1f489af99
 
+* FAISS: https://github.com/facebookresearch/faiss
 ## Citation
 ### Sentence Transformer
     @inproceedings{reimers-2019-sentence-bert,
@@ -162,7 +231,7 @@ Refer to the inline comments and function docstrings for detailed explanations o
     }
 ### MatryoshkaLoss
     @misc{kusupati2024matryoshka,
-        title={Matryoshka Representation Learning}, 
+        title={Matryoshka Representation Learning},
         author={Aditya Kusupati and Gantavya Bhatt and Aniket Rege and Matthew Wallingford and Aditya Sinha and Vivek Ramanujan and William Howard-Snyder and Kaifeng Chen and Sham Kakade and Prateek Jain and Ali Farhadi},
         year={2024},
         eprint={2205.13147},
@@ -172,7 +241,7 @@ Refer to the inline comments and function docstrings for detailed explanations o
 
 ### MultipleNegativesRankingLoss
     @misc{henderson2017efficient,
-        title={Efficient Natural Language Response Suggestion for Smart Reply}, 
+        title={Efficient Natural Language Response Suggestion for Smart Reply},
         author={Matthew Henderson and Rami Al-Rfou and Brian Strope and Yun-hsuan Sung and Laszlo Lukacs and Ruiqi Guo and Sanjiv Kumar and Balint Miklos and Ray Kurzweil},
         year={2017},
         eprint={1705.00652},
@@ -186,4 +255,14 @@ Refer to the inline comments and function docstrings for detailed explanations o
         author={Rodger Benham and Alistair Moffat and Falk Scholer and Paul Thomas and Andrew Turpin},
         year={2017},
         url={https://dl.acm.org/doi/10.1145/3166072.3166084}
+    }
+
+### FAISS
+    @misc{faiss,
+      author = {Johnson, Jeff and Douze, Matthijs and Jégou, Hervé},
+      title = {{FAISS}: A library for efficient similarity search and clustering of dense vectors},
+      year = {2017},
+      publisher = {GitHub},
+      journal = {GitHub repository},
+      howpublished = {\url{https://github.com/facebookresearch/faiss}}
     }
