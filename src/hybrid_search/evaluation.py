@@ -134,8 +134,3 @@ def print_evaluation_metrics(true_labels, predicted_labels):
     print(f"{'Recall':<10} {recall:.4f}")
     print(f"{'F1 Score':<10} {f1:.4f}")
     print(f"{'Accuracy':<10} {accuracy:.4f}")
-
-
-# # Example usage
-# true_labels, predicted_labels = generate_labels(mapping_test, engine.hybrid_search)
-# print_evaluation_metrics(true_labels, predicted_labels)
