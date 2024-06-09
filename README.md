@@ -39,11 +39,15 @@ The primary goal is to create an accurate and efficient mapping of account names
     ```bash
     python run.py
     ```
-3. Open your web browser with url
+3. Open your web browser with this url below
     ```
     http://127.0.0.1:7860
     ```
+    It will show you this page:
+    ![Upload Interface](assets/images/1.upload.jpg)
+
 2. Upload the Excel file to initialize the search engine.
+    ![Uploaded Progress](assets/images/2.uploaded.jpg)
 3. Perform searches and view results.
 4. Generate evaluation metrics to assess the accuracy and efficiency of the mapping solution.
 
@@ -56,13 +60,15 @@ The primary goal is to create an accurate and efficient mapping of account names
     - `evaluation.py`: Evaluates the search performance.
 - `run.py`: Main script to run the Gradio interface.
 - `requirements/`: Directory for requirements files.
-  - `main.txt`: Production dependencies.
+  - `main.txt`: Production dependencies.  
   - `dev.txt`: Development dependencies.
 - `README.md`: Project overview and setup instructions.
 - `setup.cfg`: Configuration file for the project.
 
 ## Evaluation
-Generate evaluation metrics to assess the accuracy and efficiency of the mapping solution.
+Generate evaluation metrics to assess the accuracy and efficiency of the mapping solution. This is the example from sample data provided.
+![Metric Result](assets/images/metrics.jpg)
+
 
 ## Documentation
 Refer to the inline comments and function docstrings for detailed explanations of the code.
