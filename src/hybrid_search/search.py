@@ -127,58 +127,6 @@ class HybridSearch:
         tokens = [stemmer.stem(word) for word in tokens]  # Stem words
         return tokens
 
-    def _normalize_scores(self, rscores) -> np.ndarray:
-        """
-        Normalizes scores.
-
-        Args:
-            rscores (list): List of raw scores.
-
-        Returns:
-            np.ndarray: Normalized scores.
-        """
-        mxscr = np.max(rscores)
-        mnscr = np.min(rscores)
-
-        if mxscr != mnscr:
-            norm_scr = (rscores - mnscr) / (mxscr - mnscr)
-        else:
-            norm_scr = np.array(rscores)
-
-        return norm_scr
-
-    def _hybrid_scores(
-        self,
-        bm25_scores,
-        tfr_scores,
-        transformer_weight: float = 0.9,
-        bm25_weight: float = 0.3,
-    ) -> np.ndarray:
-        """
-        Combines BM25 and transformer scores with weighting.
-
-        Args:
-            bm25_scores (list): BM25 scores.
-            tfr_scores (list): Transformer scores.
-            transformer_weight (float): Weight for transformer scores.
-            bm25_weight (float): Weight for BM25 scores.
-
-        Returns:
-            np.ndarray: Combined scores.
-        """
-
-        # Normalize BM25 scores and transformer scores
-        bm25_scores = self._normalize_scores(bm25_scores)
-        tfr_scores = self._normalize_scores(tfr_scores)
-
-        agreement_factor = np.multiply(bm25_scores, tfr_scores)
-        bm25_weighted_scores = bm25_weight * bm25_scores
-        tfr_weighted_scores = transformer_weight * tfr_scores
-
-        combined_scores = bm25_weighted_scores + tfr_weighted_scores + agreement_factor
-
-        return combined_scores
-
     def _query_embedding(self, query: str) -> np.ndarray:
         """
         Encodes a query to get its embedding.
@@ -233,7 +181,7 @@ class HybridSearch:
 
         # Get the top N candidates from BM25
         indices = np.argsort(scores)[::-1][:top_n]
-        candidates = [self.corpus[i] for i in indices]
+        candidates = [self.corpus[doc_id] for doc_id in indices]
         scores = [scores[i] for i in indices]
 
         # Create results with scores
@@ -255,12 +203,30 @@ class HybridSearch:
         indices, scores = self.fmgr.search(query_embedding, top_n=top_n)
 
         # Get the top N candidates
-        candidates = [self.corpus[i] for i in indices]
+        candidates = [self.corpus[doc_id] for doc_id in indices]
 
         # Create results with scores
         ranked_results = self._ranked_result(candidates, scores)
 
         return ranked_results
+    
+    def _rrf(self, rankings: List[List[int]], weights: List[float], k: int = 60) -> dict:
+        """
+        Calculates the Reciprocal Rank Fusion (RRF) score with weights.
+
+        Args:
+            rankings (list of list of int): Rankings from different methods.
+            weights (list of float): Weights for each ranking method.
+            k (int): The constant for RRF.
+
+        Returns:
+            dict: Combined ranking scores.
+        """
+        rrf_scores = {}
+        for weight, rank_list in zip(weights, rankings):
+            for rank, doc_id in enumerate(rank_list):
+                rrf_scores[doc_id] = rrf_scores.get(doc_id, 0) + weight / (k + rank + 1)
+        return rrf_scores
 
     def hybrid_search(
         self,
@@ -270,7 +236,7 @@ class HybridSearch:
         bm25_weight: float = 0.3,
     ) -> List[dict]:
         """
-        Performs hybrid search combining BM25 and transformer-based search.
+        Performs hybrid search combining BM25 and transformer-based search using weighted RRF.
 
         Args:
             query (str): Query string.
@@ -283,23 +249,21 @@ class HybridSearch:
         """
         query_embedding = self._query_embedding(query)
         tfr_indices, tfr_scores = self.fmgr.search(query_embedding, top_n=top_n)
-        tfr_candidates = [self.corpus[i] for i in tfr_indices]
 
-        # Preprocess the query for BM25
         tokenized_query = self._tokenize(query)
         bm25_scores = self.bm25.get_scores(tokenized_query)
+        bm25_indices = np.argsort(bm25_scores)[::-1][:top_n]
+        
+        rankings = [tfr_indices.tolist(), bm25_indices.tolist()]
+        weights = [transformer_weight, bm25_weight]
+        rrf_scores = self._rrf(rankings, weights)
 
-        # Get BM25 scores for the top N candidates
-        bm25_scores = [
-            bm25_scores[self.corpus.index(candidate)] for candidate in tfr_candidates
-        ]
+        combined_indices = list(rrf_scores.keys())
+        combined_scores = [rrf_scores[doc_id] for doc_id in combined_indices]
+        combined_candidates = [self.corpus[doc_id] for doc_id in combined_indices]
 
-        combined_scores = self._hybrid_scores(
-            bm25_scores,
-            tfr_scores,
-            transformer_weight=transformer_weight,
-            bm25_weight=bm25_weight,
+        ranked_results = self._ranked_result(
+            combined_candidates, combined_scores
         )
-        ranked_results = self._ranked_result(tfr_candidates, combined_scores)
 
         return ranked_results
